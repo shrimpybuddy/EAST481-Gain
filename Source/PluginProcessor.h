@@ -60,5 +60,6 @@ private:
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Gain1AudioProcessor);
 	juce::dsp::Gain<float> gain;
-	juce::AudioParameterFloat* gainParam = nullptr;
+    std::atomic<float>* gainParam = nullptr;
+    float previousGain;
 };

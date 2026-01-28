@@ -22,6 +22,7 @@ Gain1AudioProcessor::Gain1AudioProcessor()
                        )
 #endif
 {
+    gainParam = apvts.getRawParameterValue("gainLevel");    
 }
 
 Gain1AudioProcessor::~Gain1AudioProcessor()
@@ -100,6 +101,7 @@ void Gain1AudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 	spec.maximumBlockSize = samplesPerBlock;
 	spec.numChannels = getTotalNumOutputChannels();
 	gain.prepare(spec);
+    gain.setRampDurationSeconds(0.02);
 }
 
 void Gain1AudioProcessor::releaseResources()
@@ -134,10 +136,10 @@ bool Gain1AudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) co
 }
 #endif
 
-void Gain1AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
+void Gain1AudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
-    auto totalNumInputChannels  = getTotalNumInputChannels();
+    auto totalNumInputChannels = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
     // In case we have more outputs than inputs, this code clears any output
@@ -146,36 +148,37 @@ void Gain1AudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
     // This is here to avoid people getting screaming feedback
     // when they first compile a plugin, but obviously you don't need to keep
     // this code if your algorithm always overwrites all the output channels.
-    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
 
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
-    
-    //for (int channel = 0; channel < totalNumInputChannels; ++channel)
-    //{
-    //    auto* channelData = buffer.getWritePointer (channel);
+    /*for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
+        buffer.clear (i, 0, buffer.getNumSamples());*/
 
-    //    // ..do something to the data...
-    //}
+        // This is the place where you'd normally do the guts of your plugin's
+        // audio processing...
+        // Make sure to reset the state if your inner loop is processing
+        // the samples and the outer loop is handling the channels.
+        // Alternatively, you can process the samples with the channels
+        // interleaved by keeping the same state.
+
+        //for (int channel = 0; channel < totalNumInputChannels; ++channel)
+        //{
+        //    auto* channelData = buffer.getWritePointer (channel);
+
+        //    // ..do something to the data...
+        //}
 
     juce::dsp::AudioBlock<float> block(buffer);
 
+    auto context = juce::dsp::ProcessContextReplacing<float>(block);
 
-	
-
-	auto context = juce::dsp::ProcessContextReplacing<float>(block);
-
-    gain.setGainLinear(*apvts.getRawParameterValue("gainLevel"));
-  
-
-    gain.process(context); 
+    auto db = gainParam->load();
+    if (db < -99.0f) {
+        gain.setGainLinear(0.0f);
+    }
+    else {
+        gain.setGainDecibels(db);
+    }
+    gain.process(context);
 }
-
 //==============================================================================
 bool Gain1AudioProcessor::hasEditor() const
 {
@@ -184,8 +187,8 @@ bool Gain1AudioProcessor::hasEditor() const
 
 juce::AudioProcessorEditor* Gain1AudioProcessor::createEditor()
 {
-    //return new Gain1AudioProcessorEditor (*this);
-    return new juce::GenericAudioProcessorEditor(*this);
+    return new Gain1AudioProcessorEditor (*this);
+    //return new juce::GenericAudioProcessorEditor(*this);
 }
 
 //==============================================================================
@@ -218,11 +221,12 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 juce::AudioProcessorValueTreeState::ParameterLayout Gain1AudioProcessor::createParameterLayout() {
     juce::AudioProcessorValueTreeState::ParameterLayout pl;
 
-    pl.add(std::make_unique<juce::AudioParameterFloat>("gainLevel", // parameterID
-                                                        "GainLevel", // parameter name
-                                                        0.0f,   // minimum value
-                                                        2.0f,   // maximum value
-		1.0f)); // default value
+    pl.add(std::make_unique<juce::AudioParameterFloat>(
+        "gainLevel", // parameterID                          
+        "GainLevel", // parameter name
+        juce::NormalisableRange<float>(-100.0f, 6.0f, 0.01f,3.0f),
+        0.0f,
+        "dB"));
 
     return pl;
 

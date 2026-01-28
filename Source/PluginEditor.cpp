@@ -16,14 +16,17 @@ Gain1AudioProcessorEditor::Gain1AudioProcessorEditor (Gain1AudioProcessor& p)
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
     setSize (400, 300);
-
-	gainSlider.setSliderStyle(juce::Slider::Rotary);
-	gainSlider.setRange(0, 200);
-	gainSlider.setValue(100);
+	gainSlider.setSliderStyle(juce::Slider::LinearBarVertical);
     gainSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 90, 0);
-	gainSlider.setTextValueSuffix(" %");   
+	gainSlider.setTextValueSuffix(" db");   
     gainSlider.setPopupDisplayEnabled(false, true, this);
 	addAndMakeVisible(&gainSlider);
+
+    gainSliderAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+        audioProcessor.apvts,
+        "gainLevel",
+        gainSlider
+	);
 }
 
 Gain1AudioProcessorEditor::~Gain1AudioProcessorEditor()
